@@ -29,6 +29,7 @@ const empty: Student = {
   student_name: "",
   father_name: "",
   dob: "",
+  email: "",
   physics_max: 100,
   physics_obtained: 0,
   chemistry_max: 100,
@@ -136,6 +137,17 @@ export function StudentsTab({
                   />
                 </div>
               ))}
+              <div className="sm:col-span-2">
+                <Label>Email Address</Label>
+                <Input
+                  type="email"
+                  placeholder="e.g. student@gmail.com"
+                  value={editing.email}
+                  onChange={(e) =>
+                    setEditing({ ...editing, email: e.target.value })
+                  }
+                />
+              </div>
               {SUBJECTS.map(({ key, label }) => (
                 <div key={key} className="sm:col-span-2 grid grid-cols-2 gap-2 rounded border p-2">
                   <div className="col-span-2 text-sm font-semibold">{label}</div>
@@ -202,6 +214,7 @@ export function StudentsTab({
                 <TableHead>Name</TableHead>
                 <TableHead>Father's Name</TableHead>
                 <TableHead>DOB</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead className="text-center">Phy</TableHead>
                 <TableHead className="text-center">Chem</TableHead>
                 <TableHead className="text-center">Bio</TableHead>
@@ -216,6 +229,7 @@ export function StudentsTab({
                   <TableCell>{s.student_name}</TableCell>
                   <TableCell>{s.father_name}</TableCell>
                   <TableCell>{s.dob}</TableCell>
+                  <TableCell className="max-w-[150px] truncate" title={s.email}>{s.email || "—"}</TableCell>
                   <TableCell className="text-center">{s.physics_obtained}/{s.physics_max}</TableCell>
                   <TableCell className="text-center">{s.chemistry_obtained}/{s.chemistry_max}</TableCell>
                   <TableCell className="text-center">{s.biology_obtained}/{s.biology_max}</TableCell>

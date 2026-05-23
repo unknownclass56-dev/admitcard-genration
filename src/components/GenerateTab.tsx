@@ -9,6 +9,8 @@ import { AdmitCard, Marksheet } from "./DocTemplates";
 import { nodeToPdfBlob, safeFileName, zipAndDownload } from "@/lib/pdf-gen";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
+import { Input } from "@/components/ui/input";
+import { sendAdmitCardEmail } from "@/lib/email-server";
 
 type Kind = "admit" | "marks";
 
@@ -55,6 +57,22 @@ export function GenerateTab({
   const [progress, setProgress] = useState(0);
   const [previewIdx, setPreviewIdx] = useState(0);
   const previewRef = useRef<HTMLDivElement>(null);
+  const [sendEmails, setSendEmails] = useState(false);
+  const [ccEmail, setCcEmail] = useState("");
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
 
   const generate = async (kind: Kind) => {
     if (students.length === 0) {
@@ -63,27 +81,67 @@ export function GenerateTab({
     }
     setBusy(kind);
     setProgress(0);
+    setEmailStatus(null);
     try {
       const files: { name: string; blob: Blob }[] = [];
+      let emailsSent = 0;
+      let emailsFailed = 0;
+      let emailsSkipped = 0;
+
       for (let i = 0; i < students.length; i++) {
         const s = students[i];
         const blob = await renderStudentToPdf(kind, s, settings);
         const prefix = kind === "admit" ? "AdmitCard" : "Marksheet";
+        const fileName = `${prefix}_${safeFileName(s.roll_no)}_${safeFileName(s.student_name)}.pdf`;
         files.push({
-          name: `${prefix}_${safeFileName(s.roll_no)}_${safeFileName(s.student_name)}.pdf`,
+          name: fileName,
           blob,
         });
+
+        if (kind === "admit" && sendEmails) {
+          if (s.email && s.email.trim()) {
+            try {
+              setEmailStatus(`Sending email to ${s.student_name}...`);
+              const pdfBase64 = await blobToBase64(blob);
+              await sendAdmitCardEmail({
+                data: {
+                  to: s.email.trim(),
+                  cc: ccEmail.trim() || undefined,
+                  studentName: s.student_name,
+                  rollNo: s.roll_no,
+                  pdfBase64,
+                  fileName,
+                  testName: settings.test_name,
+                },
+              });
+              emailsSent++;
+            } catch (err) {
+              console.error(`Failed to send email to ${s.student_name}:`, err);
+              emailsFailed++;
+            }
+          } else {
+            emailsSkipped++;
+          }
+        }
+
         setProgress(Math.round(((i + 1) / students.length) * 100));
       }
+      setEmailStatus(null);
       const zipName = kind === "admit" ? "admit-cards.zip" : "marksheets.zip";
       await zipAndDownload(files, zipName);
-      toast.success(`Generated ${files.length} PDFs → ${zipName}`);
+      
+      if (kind === "admit" && sendEmails) {
+        toast.success(`Generated ${files.length} PDFs. Emails sent: ${emailsSent}, Failed: ${emailsFailed}, Skipped (no email): ${emailsSkipped}`);
+      } else {
+        toast.success(`Generated ${files.length} PDFs → ${zipName}`);
+      }
     } catch (e) {
       console.error(e);
       toast.error("Generation failed. Check console.");
     } finally {
       setBusy(null);
       setProgress(0);
+      setEmailStatus(null);
     }
   };
 
@@ -92,23 +150,70 @@ export function GenerateTab({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-[#0a2540]" />
-            <h3 className="font-semibold">Admit Cards</h3>
+        <div className="rounded-lg border p-4 flex flex-col justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-[#0a2540]" />
+              <h3 className="font-semibold">Admit Cards</h3>
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Generate admit cards for all {students.length} students and download as ZIP.
+            </p>
+
+            <div className="mb-4 rounded border p-3 bg-slate-50 space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  id="send-emails-check"
+                  type="checkbox"
+                  checked={sendEmails}
+                  onChange={(e) => setSendEmails(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <label
+                  htmlFor="send-emails-check"
+                  className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
+                >
+                  Email PDF Admit Cards directly to students
+                </label>
+              </div>
+
+              {sendEmails && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    CC Email Address (Optional)
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="e.g. cc@aspectvision.com"
+                    value={ccEmail}
+                    onChange={(e) => setCcEmail(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              )}
+            </div>
           </div>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Generate admit cards for all {students.length} students and download as ZIP.
-          </p>
-          <Button
-            onClick={() => generate("admit")}
-            disabled={busy !== null}
-            className="w-full"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {busy === "admit" ? `Generating… ${progress}%` : "Download Admit Cards ZIP"}
-          </Button>
-          {busy === "admit" && <Progress value={progress} className="mt-2" />}
+
+          <div>
+            <Button
+              onClick={() => generate("admit")}
+              disabled={busy !== null}
+              className="w-full"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {busy === "admit"
+                ? sendEmails
+                  ? `Sending Emails… ${progress}%`
+                  : `Generating… ${progress}%`
+                : "Download & Send Admit Cards"}
+            </Button>
+            {busy === "admit" && <Progress value={progress} className="mt-2" />}
+            {emailStatus && (
+              <p className="mt-2 text-center text-xs font-medium text-amber-600 animate-pulse">
+                {emailStatus}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="rounded-lg border p-4">

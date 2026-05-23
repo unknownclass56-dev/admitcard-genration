@@ -12,6 +12,7 @@ export interface Student {
   student_name: string;
   father_name: string;
   dob: string;
+  email: string;
   physics_max: number;
   physics_obtained: number;
   chemistry_max: number;
@@ -33,6 +34,7 @@ export interface ExamSettings {
   timings: Record<Subject, SubjectTiming>;
   instructions: string;
   test_name: string;
+  reporting_time?: string;
 }
 
 export function calcResult(s: Student) {

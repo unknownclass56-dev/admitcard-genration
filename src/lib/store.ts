@@ -9,6 +9,7 @@ export const defaultSettings: ExamSettings = {
   test_name: "BCECE TEST",
   exam_centre: "Miracle Professional College, Rajendra Nagar, Patna",
   exam_date: "24/05/2026",
+  reporting_time: "08:00 AM",
   timings: {
     physics: { date: "24/05/2026", timing: "09:00 AM - 10:30 AM" },
     chemistry: { date: "24/05/2026", timing: "11:00 AM - 12:30 PM" },

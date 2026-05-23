@@ -17,7 +17,7 @@ export function ExamSettingsTab({
 }) {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label>Test Name</Label>
           <Input
@@ -32,7 +32,14 @@ export function ExamSettingsTab({
             onChange={(e) => setSettings({ ...settings, exam_date: e.target.value })}
           />
         </div>
-        <div className="sm:col-span-2">
+        <div>
+          <Label>Reporting Time</Label>
+          <Input
+            value={settings.reporting_time ?? "08:00 AM"}
+            onChange={(e) => setSettings({ ...settings, reporting_time: e.target.value })}
+          />
+        </div>
+        <div className="sm:col-span-3">
           <Label>Exam Centre</Label>
           <Input
             value={settings.exam_centre}

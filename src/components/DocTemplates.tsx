@@ -64,6 +64,7 @@ export function AdmitCard({ student, settings }: Props) {
           <Field label="Date of Birth" value={student.dob} />
           <Field label="Candidate's Name" value={student.student_name} />
           <Field label="Father's Name" value={student.father_name} />
+          <Field label="Reporting Time" value={settings.reporting_time || "08:00 AM"} />
         </div>
 
         <div className="mt-5">
